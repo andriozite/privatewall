@@ -30,6 +30,7 @@
             transition: all 0.2s ease;
             background: #1e293b; /* Slate 800 */
             border: 1px solid #334155;
+            position: relative;
         }
         
         .keep-card:hover {
@@ -58,6 +59,15 @@
             padding: 0.25rem;
             border-radius: 9999px;
             cursor: pointer;
+        }
+
+        .delete-msg-btn {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .keep-card:hover .delete-msg-btn {
+            opacity: 1;
         }
     </style>
 </head>
@@ -150,6 +160,18 @@
         </div>
     </main>
 
+    <!-- Custom Confirm Modal -->
+    <div id="confirm-modal" class="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center hidden backdrop-blur-sm p-4">
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
+            <h4 class="text-white font-bold mb-2 uppercase tracking-tighter text-xl">Hapus Jejak?</h4>
+            <p class="text-slate-400 text-sm mb-6">Tindakan ini permanen. Jejakmu akan hilang selamanya dari Abyss.</p>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeConfirmModal()" class="px-4 py-2 text-xs font-bold text-slate-500 uppercase hover:text-white transition-colors">Batal</button>
+                <button id="confirm-delete-btn" class="px-6 py-2 bg-rose-600 text-white rounded-lg text-xs font-bold uppercase hover:bg-rose-500 transition-colors shadow-lg shadow-rose-900/20">Hapus</button>
+            </div>
+        </div>
+    </div>
+
     <footer class="py-12 text-center border-t border-slate-900">
         <p class="text-slate-600 text-[10px] font-mono uppercase tracking-[0.3em]">
             wallprojectandrian &copy; 2026 // PUBLIC ACCESS
@@ -162,7 +184,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBsyXGXtDFNX5SAk5MX-vX1_aPTN4rUJj0",
@@ -184,19 +206,44 @@
         const imagePreviewArea = document.getElementById('image-preview-area');
         const imagePreviewImg = document.getElementById('image-preview-img');
         const charCount = document.getElementById('char-count');
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
 
         let currentUser = null;
         let db, auth;
         let base64Image = null;
+        let messageIdToDelete = null;
         const appId = 'global-wall-andrian';
 
-        // Window level function for onclick
+        // Window level functions
         window.clearImageSelection = () => {
             imageUpload.value = '';
             base64Image = null;
             imagePreviewArea.classList.add('hidden');
             imagePreviewImg.src = '';
         };
+
+        window.openDeleteConfirm = (id) => {
+            messageIdToDelete = id;
+            confirmModal.classList.remove('hidden');
+        };
+
+        window.closeConfirmModal = () => {
+            messageIdToDelete = null;
+            confirmModal.classList.add('hidden');
+        };
+
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if (!messageIdToDelete || !db) return;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', messageIdToDelete);
+                await deleteDoc(docRef);
+                closeConfirmModal();
+            } catch (err) {
+                console.error(err);
+                showError("GAGAL MENGHAPUS");
+            }
+        });
 
         function showError(message) {
             const container = document.getElementById('error-container');
@@ -232,18 +279,14 @@
             setTimeout(() => loadingScreen.style.display = 'none', 500);
         }
 
-        // Image Handling
         imageUpload.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-
-            // Check size (max 800KB due to Firestore document limit and Base64 overhead)
             if (file.size > 800000) {
                 showError("UKURAN FOTO TERLALU BESAR (MAX 800KB)");
                 imageUpload.value = '';
                 return;
             }
-
             const reader = new FileReader();
             reader.onload = (event) => {
                 base64Image = event.target.result;
@@ -289,9 +332,18 @@
                         <img src="${msg.imageData}" class="w-full object-cover max-h-60" loading="lazy">
                     </div>
                 ` : '';
+
+                // Cek apakah pesan milik user yang sedang login
+                const isOwner = currentUser && msg.ownerUid === currentUser.uid;
+                const deleteBtnHtml = isOwner ? `
+                    <button onclick="openDeleteConfirm('${msg.id}')" class="delete-msg-btn absolute top-3 right-3 p-2 bg-slate-900/60 text-slate-400 hover:text-rose-500 rounded-lg backdrop-blur-sm transition-all border border-slate-700/50">
+                        <i data-lucide="trash-2" size="14"></i>
+                    </button>
+                ` : '';
                 
                 return `
                 <div class="keep-card rounded-xl p-5 border border-slate-700 animate-in fade-in duration-500 shadow-lg" style="background-color: ${color}">
+                    ${deleteBtnHtml}
                     ${imageHtml}
                     <p class="text-slate-200 text-sm md:text-base leading-relaxed mb-6 whitespace-pre-wrap">
                         ${escapeHtml(msg.text)}
@@ -320,7 +372,8 @@
                 await addDoc(globalRef, {
                     text: text,
                     userName: currentUser.uid.substring(0, 4).toUpperCase(),
-                    imageData: base64Image, // Menyimpan foto sebagai base64 string
+                    ownerUid: currentUser.uid, // Simpan UID pemilik untuk hak akses hapus
+                    imageData: base64Image,
                     createdAt: serverTimestamp(),
                 });
                 
