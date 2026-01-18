@@ -3,127 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Private Wall - Catatan Pribadi Real-time</title>
+    <title>Global Wall - Dark & Gritty</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+        
         body {
-            font-family: 'Plus+Jakarta+Sans', sans-serif;
+            font-family: 'Space+Grotesk', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
         }
-        .message-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+        /* Google Keep Style Grid */
+        .keep-grid {
+            column-count: 1;
+            column-gap: 1.5rem;
         }
-        .message-card:hover {
-            transform: translateY(-4px);
+        @media (min-width: 640px) { .keep-grid { column-count: 2; } }
+        @media (min-width: 1024px) { .keep-grid { column-count: 3; } }
+
+        .keep-card {
+            break-inside: avoid;
+            margin-bottom: 1.5rem;
+            transition: all 0.2s ease;
+            background: #1e293b; /* Slate 800 */
+            border: 1px solid #334155;
         }
+        
+        .keep-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            border-color: #475569;
+        }
+
         #loading-screen {
-            transition: opacity 0.5s ease-out;
+            background-color: #0f172a;
         }
-        .error-toast {
-            animation: slideUp 0.3s ease-out forwards;
+
+        .image-preview-container {
+            max-height: 200px;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+            position: relative;
         }
-        @keyframes slideUp {
-            from { transform: translateY(100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+
+        .remove-img-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 0.25rem;
+            border-radius: 9999px;
+            cursor: pointer;
         }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+<body class="text-slate-200 min-h-screen flex flex-col">
 
     <!-- Loading Screen -->
-    <div id="loading-screen" class="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center">
-        <div id="loading-spinner" class="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-600 mb-4"></div>
-        <p id="loading-text" class="text-slate-500 font-medium">Menghubungkan ke database pribadi...</p>
-        <div id="setup-instruction" class="hidden mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl max-w-sm text-center">
-            <p class="text-amber-800 text-sm mb-2 font-bold">⚠️ Masalah Koneksi</p>
-            <p class="text-amber-700 text-xs">Pastikan Authentication (Anonymous) sudah diaktifkan di Firebase Console.</p>
-        </div>
+    <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500 mb-4"></div>
+        <p class="text-slate-400 font-mono tracking-widest uppercase text-xs">Connecting to the abyss...</p>
+    </div>
+
+    <!-- Warning Bar -->
+    <div class="bg-rose-900/30 border-b border-rose-900/50 text-rose-400 px-4 py-2 text-center text-[10px] font-bold tracking-widest uppercase">
+        <i data-lucide="alert-triangle" class="inline-block w-3 h-3 mr-1"></i>
+        Peringatan: Jangan me-refresh halaman atau ID Anda akan berganti!
     </div>
 
     <!-- Header -->
-    <nav class="bg-white border-b sticky top-0 z-10 p-4 shadow-sm">
-        <div class="max-w-4xl mx-auto flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <div class="bg-rose-600 p-1.5 rounded-lg text-white">
-                    <i data-lucide="lock" size="20"></i>
+    <nav class="bg-slate-900/50 border-b border-slate-800 sticky top-0 z-10 p-4 backdrop-blur-md">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-rose-600 p-2 rounded-md shadow-lg shadow-rose-900/20">
+                    <i data-lucide="skull" size="20" class="text-white"></i>
                 </div>
-                <h1 class="text-xl font-bold tracking-tight text-slate-800">Private Wall</h1>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tighter text-white uppercase">The Abyss Wall</h1>
+                    <p class="text-[10px] text-slate-500 font-mono">PUBLIC ACCESS GRANTED</p>
+                </div>
             </div>
-            <div class="flex items-center gap-2 text-xs font-mono text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border">
-                <i data-lucide="shield-check" size="12" class="text-green-600"></i>
-                <span id="user-id">Authenticating...</span>
+            <div class="flex items-center gap-2 text-[10px] font-mono text-slate-400 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                <span id="user-id">OFFLINE</span>
             </div>
         </div>
     </nav>
 
-    <main class="max-w-4xl mx-auto p-4 md:p-8 w-full">
-        <!-- Intro -->
-        <section class="mb-10 text-center">
-            <h2 class="text-4xl font-extrabold mb-3 text-slate-900">Jurnal Pribadi.</h2>
-            <p class="text-slate-500 max-w-lg mx-auto italic text-lg leading-relaxed">
-                Pesan di bawah ini hanya bisa dilihat oleh Anda. Aman, terenkripsi, dan privat.
-            </p>
+    <main class="max-w-6xl mx-auto p-4 md:p-8 w-full">
+        <!-- Form Section -->
+        <section class="max-w-2xl mx-auto mb-16">
+            <form id="message-form" class="bg-slate-800/50 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+                <div class="p-4">
+                    <textarea
+                        id="message-input"
+                        rows="1"
+                        placeholder="Tuliskan jejakmu di sini..."
+                        class="w-full bg-transparent border-none focus:ring-0 text-lg placeholder-slate-600 resize-none text-slate-200"
+                        maxlength="280"
+                        oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'"
+                        required
+                    ></textarea>
+                    
+                    <!-- Image Preview Area -->
+                    <div id="image-preview-area" class="image-preview-container hidden">
+                        <div class="remove-img-btn" onclick="clearImageSelection()">
+                            <i data-lucide="x" size="16"></i>
+                        </div>
+                        <img id="image-preview-img" src="" class="w-full h-full object-cover">
+                    </div>
+                </div>
+                
+                <div class="bg-slate-900/50 px-4 py-2 flex justify-between items-center border-t border-slate-700/50">
+                    <div class="flex items-center gap-4">
+                        <label for="image-upload" class="cursor-pointer text-slate-500 hover:text-slate-300 transition-colors">
+                            <i data-lucide="image" size="20"></i>
+                            <input type="file" id="image-upload" class="hidden" accept="image/*">
+                        </label>
+                        <span id="char-count" class="text-[10px] text-slate-600 font-mono uppercase tracking-widest">0 / 280</span>
+                    </div>
+                    <button
+                        type="submit"
+                        id="submit-btn"
+                        class="text-rose-500 hover:text-rose-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2 transition-colors disabled:opacity-30"
+                    >
+                        Publish <i data-lucide="chevron-right" size="16"></i>
+                    </button>
+                </div>
+            </form>
         </section>
 
-        <!-- Form -->
-        <form id="message-form" class="mb-12">
-            <div class="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100">
-                <input
-                    type="text"
-                    id="message-input"
-                    placeholder="Tulis catatan rahasia atau pengingat..."
-                    class="flex-1 p-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-100 text-lg transition-all"
-                    maxlength="140"
-                    required
-                >
-                <button
-                    type="submit"
-                    id="submit-btn"
-                    class="bg-slate-900 text-white px-8 py-4 rounded-xl font-bold hover:bg-black disabled:opacity-50 transition-all flex items-center justify-center gap-2 active:scale-95"
-                >
-                    <i data-lucide="save" size="18"></i>
-                    Simpan
-                </button>
-            </div>
-            <p class="mt-2 text-xs text-center text-slate-400 font-medium">
-                Data disimpan secara eksklusif untuk akun Anda
-            </p>
-        </form>
-
-        <!-- Wall Grid -->
-        <div id="messages-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        <!-- Messages Grid -->
+        <div id="messages-grid" class="keep-grid">
             <!-- Messages will be injected here -->
         </div>
 
         <!-- Empty State -->
-        <div id="empty-state" class="hidden py-20 text-center border-2 border-dashed border-slate-200 rounded-3xl">
-            <div class="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i data-lucide="eye-off" class="text-slate-400"></i>
-            </div>
-            <h3 class="text-slate-600 font-bold">Belum ada catatan</h3>
-            <p class="text-slate-400">Mulailah menulis sesuatu yang hanya untuk Anda.</p>
+        <div id="empty-state" class="hidden py-32 text-center border-2 border-dashed border-slate-800 rounded-3xl">
+            <i data-lucide="ghost" class="mx-auto text-slate-700 w-12 h-12 mb-4"></i>
+            <h3 class="text-slate-500 font-bold uppercase tracking-widest">Hening...</h3>
+            <p class="text-slate-600 text-sm">Belum ada jiwa yang berbicara.</p>
         </div>
     </main>
 
-    <footer class="py-12 text-center mt-auto">
-        <p class="text-slate-400 text-xs font-medium">
-            <i data-lucide="shield" size="12" class="inline mr-1"></i> Terkoneksi ke Proyek: wallprojectandrian
+    <footer class="py-12 text-center border-t border-slate-900">
+        <p class="text-slate-600 text-[10px] font-mono uppercase tracking-[0.3em]">
+            wallprojectandrian &copy; 2026 // PUBLIC ACCESS
         </p>
     </footer>
 
-    <!-- Error Toast Container -->
-    <div id="error-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+    <!-- Error Toast -->
+    <div id="error-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
 
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Konfigurasi dari Anda
         const firebaseConfig = {
             apiKey: "AIzaSyBsyXGXtDFNX5SAk5MX-vX1_aPTN4rUJj0",
             authDomain: "wallprojectandrian.firebaseapp.com",
@@ -140,22 +180,31 @@
         const emptyState = document.getElementById('empty-state');
         const userIdDisplay = document.getElementById('user-id');
         const loadingScreen = document.getElementById('loading-screen');
-        const setupInstruction = document.getElementById('setup-instruction');
-        const loadingSpinner = document.getElementById('loading-spinner');
-        const loadingText = document.getElementById('loading-text');
+        const imageUpload = document.getElementById('image-upload');
+        const imagePreviewArea = document.getElementById('image-preview-area');
+        const imagePreviewImg = document.getElementById('image-preview-img');
+        const charCount = document.getElementById('char-count');
 
         let currentUser = null;
         let db, auth;
-        const appId = 'private-wall-andrian';
+        let base64Image = null;
+        const appId = 'global-wall-andrian';
+
+        // Window level function for onclick
+        window.clearImageSelection = () => {
+            imageUpload.value = '';
+            base64Image = null;
+            imagePreviewArea.classList.add('hidden');
+            imagePreviewImg.src = '';
+        };
 
         function showError(message) {
             const container = document.getElementById('error-container');
             const toast = document.createElement('div');
-            toast.className = "error-toast pointer-events-auto bg-red-600 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm";
-            toast.innerHTML = `<i data-lucide="alert-circle" size="18"></i> <span>${message}</span>`;
+            toast.className = "bg-rose-600 text-white px-6 py-3 rounded-lg shadow-2xl font-bold text-xs uppercase tracking-widest animate-pulse";
+            toast.textContent = message;
             container.appendChild(toast);
-            lucide.createIcons();
-            setTimeout(() => toast.remove(), 5000);
+            setTimeout(() => toast.remove(), 4000);
         }
 
         async function initApp() {
@@ -163,25 +212,18 @@
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
-
-                // Autentikasi Anonim
                 await signInAnonymously(auth);
-
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         currentUser = user;
-                        userIdDisplay.textContent = "USER: " + user.uid.substring(0, 6);
+                        userIdDisplay.textContent = "UID: " + user.uid.substring(0, 8).toUpperCase();
                         hideLoading();
                         startListening();
                     }
                 });
-
             } catch (err) {
-                console.error("Initialization error:", err);
-                loadingSpinner.classList.add('hidden');
-                loadingText.textContent = "Koneksi Gagal";
-                setupInstruction.classList.remove('hidden');
-                showError("Gagal terhubung. Pastikan API Key benar dan Authentication aktif.");
+                console.error(err);
+                showError("CONNECTION FAILED");
             }
         }
 
@@ -190,23 +232,43 @@
             setTimeout(() => loadingScreen.style.display = 'none', 500);
         }
 
+        // Image Handling
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Check size (max 800KB due to Firestore document limit and Base64 overhead)
+            if (file.size > 800000) {
+                showError("UKURAN FOTO TERLALU BESAR (MAX 800KB)");
+                imageUpload.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                base64Image = event.target.result;
+                imagePreviewImg.src = base64Image;
+                imagePreviewArea.classList.remove('hidden');
+                lucide.createIcons();
+            };
+            reader.readAsDataURL(file);
+        });
+
+        messageInput.addEventListener('input', (e) => {
+            charCount.textContent = `${e.target.value.length} / 280`;
+        });
+
         function startListening() {
             if (!currentUser || !db) return;
-
-            // Menggunakan path privat sesuai Rule 1
-            const privateMessagesRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'notes');
-            
-            onSnapshot(privateMessagesRef, (snapshot) => {
+            const globalRef = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+            onSnapshot(globalRef, (snapshot) => {
                 const msgs = [];
-                snapshot.forEach((doc) => {
-                    msgs.push({ id: doc.id, ...doc.data() });
-                });
-
+                snapshot.forEach((doc) => msgs.push({ id: doc.id, ...doc.data() }));
                 msgs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
                 renderMessages(msgs);
             }, (error) => {
-                console.error("Firestore error:", error);
-                showError("Masalah izin database. Cek Rules Firestore.");
+                console.error(error);
+                showError("SYNC ERROR");
             });
         }
 
@@ -216,28 +278,32 @@
                 messagesGrid.innerHTML = '';
                 return;
             }
-
             emptyState.classList.add('hidden');
-            messagesGrid.innerHTML = msgs.map(msg => `
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 message-card flex flex-col animate-in fade-in zoom-in duration-300">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="bg-slate-100 p-1.5 rounded-md text-slate-400">
-                            <i data-lucide="file-text" class="w-4 h-4"></i>
-                        </div>
-                        <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                            ${msg.createdAt ? new Date(msg.createdAt.seconds * 1000).toLocaleDateString() : 'Baru saja'}
-                        </span>
+            
+            const cardColors = ['#1e293b', '#262626', '#1a2e05', '#2d1b1b', '#1b1b2d'];
+
+            messagesGrid.innerHTML = msgs.map((msg, index) => {
+                const color = cardColors[index % cardColors.length];
+                const imageHtml = msg.imageData ? `
+                    <div class="mb-4 rounded-lg overflow-hidden border border-slate-700/50">
+                        <img src="${msg.imageData}" class="w-full object-cover max-h-60" loading="lazy">
                     </div>
-                    <p class="text-md font-medium text-slate-700 break-words mb-4 leading-relaxed">
+                ` : '';
+                
+                return `
+                <div class="keep-card rounded-xl p-5 border border-slate-700 animate-in fade-in duration-500 shadow-lg" style="background-color: ${color}">
+                    ${imageHtml}
+                    <p class="text-slate-200 text-sm md:text-base leading-relaxed mb-6 whitespace-pre-wrap">
                         ${escapeHtml(msg.text)}
                     </p>
-                    <div class="mt-auto pt-3 border-t border-slate-50 flex items-center justify-between">
-                        <span class="text-[10px] font-bold text-slate-300 uppercase">Milik Anda</span>
-                        <i data-lucide="lock" class="w-3 h-3 text-slate-200"></i>
+                    <div class="flex justify-between items-center opacity-40 hover:opacity-100 transition-opacity">
+                        <span class="text-[9px] font-mono font-bold tracking-tighter uppercase">
+                            #${msg.userName || 'UNK'} // ${msg.createdAt ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString() : 'NOW'}
+                        </span>
+                        <i data-lucide="hash" size="10"></i>
                     </div>
                 </div>
-            `).join('');
-            
+            `}).join('');
             lucide.createIcons();
         }
 
@@ -250,15 +316,21 @@
             submitBtn.disabled = true;
 
             try {
-                const privateMessagesRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'notes');
-                await addDoc(privateMessagesRef, {
+                const globalRef = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+                await addDoc(globalRef, {
                     text: text,
+                    userName: currentUser.uid.substring(0, 4).toUpperCase(),
+                    imageData: base64Image, // Menyimpan foto sebagai base64 string
                     createdAt: serverTimestamp(),
                 });
+                
                 messageInput.value = '';
+                messageInput.style.height = 'auto';
+                charCount.textContent = "0 / 280";
+                clearImageSelection();
             } catch (err) {
-                console.error("Gagal menyimpan:", err);
-                showError("Gagal menyimpan. Cek aturan Firestore.");
+                console.error(err);
+                showError("TRANSMISSION FAILED");
             } finally {
                 submitBtn.disabled = false;
             }
